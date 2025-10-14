@@ -1,86 +1,67 @@
 <?php
 declare(strict_types=1);
 
-// Inclusion des fichiers nécessaires depuis job-03
-require __DIR__ . '/../job-03/db.php';
-require __DIR__ . '/../job-03/Product.php';
+// DB est dans job-03
+require dirname(__DIR__) . '/job-03/db.php';
 
-echo "<h1>Job 04 - Récupération et hydratation du produit ID 7</h1>";
+// Les classes aussi dans job-03
+require_once dirname(__DIR__) . '/job-03/Product.php';
+require_once dirname(__DIR__) . '/job-03/Category.php';
 
-// Requête pour récupérer le produit avec l'id 7
-$sql = "SELECT p.*, c.name AS category_name
-        FROM product p
-        JOIN category c ON c.id = p.category_id
-        WHERE p.id = :id";
+// Si tu utilises getCategory()
+Product::setPdo($pdo);
+
+
+// Si tu as implémenté Product::setPdo() pour getCategory(), injecte la connexion :
+Product::setPdo($pdo);
+
+// 2) Requête : produit ID=7 sous forme de tableau associatif
+$sql = "SELECT id, name, price_cents, quantity, category_id, created_at, updated_at
+        FROM product
+        WHERE id = :id
+        LIMIT 1";
 $stmt = $pdo->prepare($sql);
-$stmt->execute(['id' => 7]);
+$stmt->execute([':id' => 7]);
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Récupération sous forme de tableau associatif
-$productData = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if ($productData) {
-    echo "<h2>✓ Produit trouvé dans la base de données</h2>";
-    echo "<h3>Données brutes (tableau associatif) :</h3>";
-    echo "<pre>";
-    print_r($productData);
-    echo "</pre>";
-    
-    // Récupération des photos du produit
-    $sqlPhotos = "SELECT url FROM product_photo WHERE product_id = :id ORDER BY id";
-    $stmtPhotos = $pdo->prepare($sqlPhotos);
-    $stmtPhotos->execute(['id' => 7]);
-    $photos = $stmtPhotos->fetchAll(PDO::FETCH_COLUMN);
-    
-    echo "<hr>";
-    echo "<h2>✓ Hydratation de l'instance Product</h2>";
-    
-    // Création d'une nouvelle instance de Product
-    $product = new Product();
-    
-    // Hydratation de l'instance avec les données de la base de données
-    $product->setId($productData['id']);
-    $product->setName($productData['name']);
-    $product->setPhotos($photos);
-    $product->setPrice($productData['price_cents']);
-    $product->setDescription($productData['description'] ?? '');
-    $product->setQuantity($productData['quantity']);
-    $product->setCreatedAt(new DateTime($productData['created_at']));
-    $product->setUpdatedAt(new DateTime($productData['updated_at']));
-    $product->setCategory_id($productData['category_id']);
-    
-    // Affichage des informations du produit hydraté
-    echo "<h3>Instance Product hydratée :</h3>";
-    echo "<pre>";
-    echo "ID:           " . $product->getId() . "\n";
-    echo "Nom:          " . $product->getName() . "\n";
-    echo "Prix:         " . $product->getPrice() . " centimes\n";
-    echo "Description:  " . $product->getDescription() . "\n";
-    echo "Quantité:     " . $product->getQuantity() . "\n";
-    echo "Catégorie ID: " . $product->getCategory_id() . "\n";
-    echo "Catégorie:    " . $productData['category_name'] . "\n";
-    echo "Photos:       " . implode(', ', $product->getPhotos()) . "\n";
-    echo "Créé le:      " . $product->getCreatedAt()->format('Y-m-d H:i:s') . "\n";
-    echo "Mis à jour:   " . $product->getUpdatedAt()->format('Y-m-d H:i:s') . "\n";
-    echo "</pre>";
-    
-    echo "<div style='background: #d4edda; padding: 15px; border-radius: 5px; color: #155724;'>";
-    echo "<strong>🎉 Félicitations !</strong><br>";
-    echo "Vous venez de créer votre première instance de classe avec des données de base de données !";
-    echo "</div>";
-    
-} else {
-    echo "<div style='background: #f8d7da; padding: 15px; border-radius: 5px; color: #721c24;'>";
-    echo "<strong>⚠ Erreur :</strong> Aucun produit trouvé avec l'ID 7.";
-    echo "</div>";
-    
-    // Afficher les produits disponibles
-    $sqlAll = "SELECT id, name FROM product ORDER BY id";
-    $allProducts = $pdo->query($sqlAll)->fetchAll();
-    echo "<h3>Produits disponibles :</h3>";
-    echo "<ul>";
-    foreach ($allProducts as $p) {
-        echo "<li>ID {$p['id']}: {$p['name']}</li>";
-    }
-    echo "</ul>";
+if (!$row) {
+    exit("<p>Aucun produit trouvé avec l’ID 7.</p>");
 }
-?>
+
+// (optionnel) Récupérer aussi les photos
+$photos = [];
+$stmtp = $pdo->prepare("SELECT url FROM product_photo WHERE product_id = :pid ORDER BY id");
+$stmtp->execute([':pid' => (int)$row['id']]);
+while ($r = $stmtp->fetch(PDO::FETCH_ASSOC)) {
+    if (!empty($r['url'])) $photos[] = (string)$r['url'];
+}
+
+// 3) Hydration : créer une instance Product à partir du tableau
+$product = new Product(
+    id:         (int)$row['id'],
+    name:       (string)$row['name'],
+    photos:     $photos,
+    price:      (int)$row['price_cents'],     // map price_cents -> price (int)
+    description:'',
+    quantity:   (int)$row['quantity'],
+    createdAt:  !empty($row['created_at']) ? new DateTime($row['created_at']) : null,
+    updatedAt:  !empty($row['updated_at']) ? new DateTime($row['updated_at']) : null,
+    categoryId: (int)$row['category_id']
+);
+
+// 4) (facultatif) Récupérer la catégorie associée via getCategory()
+$category = $product->getCategory();
+
+// 5) Affichage de contrôle
+echo "<h2>Produit #7 hydraté</h2>";
+echo "<pre>";
+echo "ID: {$product->getId()}\n";
+echo "Nom: {$product->getName()}\n";
+echo "Prix: {$product->getPrice()} cts\n";
+echo "Stock: {$product->getQuantity()}\n";
+echo "Photos: " . implode(', ', $product->getPhotos()) . "\n";
+if ($category) {
+    echo "Catégorie: [#{$category->getId()}] {$category->getName()}\n";
+}
+echo "</pre>";
+
