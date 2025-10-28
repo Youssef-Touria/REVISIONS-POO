@@ -59,4 +59,20 @@ class Product
     public function setCreatedAt(DateTime $createdAt): void { $this->createdAt = $createdAt; }
     public function setUpdatedAt(DateTime $updatedAt): void { $this->updatedAt = $updatedAt; }
     public function setCategoryId(int $category_id): void { $this->category_id = $category_id; }
+    public function __toString(): string
+{
+    return sprintf(
+        "Product #%d: %s (Category: %d)\n" .
+        "Prix: %d centimes | Quantité: %d\n" .
+        "Description: %s\n" .
+        "Photos: %s",
+        $this->id,
+        $this->name,
+        $this->category_id,
+        $this->price,
+        $this->quantity,
+        $this->description,
+        implode(', ', $this->photos)
+    );
+}
 }

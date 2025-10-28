@@ -1,0 +1,11 @@
+{
+    "name": "votre-nom/job-15",
+    "description": "Gestion des produits avec autoloading",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "require": {}
+}

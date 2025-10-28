@@ -110,9 +110,4 @@ class Product
     {
         $this->updatedAt = $updatedAt;
     }
-
-    public function __toString(): string
-    {
-        return "Le product de Touria contient: " . $this->id . ", " . $this->name . ", " . implode(", ", $this->photos) . ", " . $this->price . " centimes, " . $this->description . ", " . $this->quantity . ", créé le " . $this->createdAt->format('Y-m-d H:i:s') . ", modifié le " . $this->updatedAt->format('Y-m-d H:i:s');
-    }
 }

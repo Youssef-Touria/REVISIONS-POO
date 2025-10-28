@@ -5,52 +5,55 @@ require_once 'Product.php';
 // Création d'une instance de Product
 $product = new Product(
     1,
-    'T-shirt en coton',
-    ['photo1.jpg', 'photo2.jpg', 'photo3.jpg'],
-    2500, // Prix en centimes (25,00€)
-    'Un magnifique t-shirt en coton bio, confortable et durable.',
+    "T-shirt Rouge",
+    ["photo1.jpg", "photo2.jpg", "photo3.jpg"],
+    2999, // Prix en centimes (29.99€)
+    "Un magnifique t-shirt rouge en coton",
     50
 );
 
-echo "=== Test des Getters ===\n\n";
+echo "=== Affichage des propriétés avec les getters ===\n\n";
 
-echo "<br><br>";
-var_dump("ID: " . $product->getId());
-echo "<br><br>";
-var_dump("Nom: " . $product->getName());
-echo "<br><br>";
-var_dump("Photos: ", $product->getPhotos());
-echo "<br><br>";
-var_dump("Prix: " . $product->getPrice() . " centimes");
-echo "<br><br>";
-var_dump("Description: " . $product->getDescription());
-echo "<br><br>";
-var_dump("Quantité: " . $product->getQuantity());
-echo "<br><br>";
-var_dump("Créé le: " . $product->getCreatedAt()->format('Y-m-d H:i:s'));
-echo "<br><br>";
-var_dump("Modifié le: " . $product->getUpdatedAt()->format('Y-m-d H:i:s'));
-echo "<br><br>";
+echo "ID: ";
+var_dump($product->getId());
 
-echo "\n=== Test des Setters ===\n\n";
+echo "\nNom: ";
+var_dump($product->getName());
 
-// Modification des propriétés avec les setters
-$product->setName('T-shirt premium en coton bio');
-$product->setPrice(3500);
-$product->setQuantity(45);
+echo "\nPhotos: ";
+var_dump($product->getPhotos());
+
+echo "\nPrix: ";
+var_dump($product->getPrice());
+
+echo "\nDescription: ";
+var_dump($product->getDescription());
+
+echo "\nQuantité: ";
+var_dump($product->getQuantity());
+
+echo "\nDate de création: ";
+var_dump($product->getCreatedAt());
+
+echo "\nDate de mise à jour: ";
+var_dump($product->getUpdatedAt());
+
+echo "\n\n=== Modification avec les setters ===\n\n";
+
+// Modification de quelques propriétés
+$product->setName("T-shirt Bleu");
+$product->setPrice(3499);
+$product->setQuantity(25);
 $product->setUpdatedAt(new DateTime());
 
-var_dump("Nouveau nom: " . $product->getName());
-echo "<br><br>";
-var_dump("Nouveau prix: " . $product->getPrice() . " centimes");
-echo "<br><br>";
-var_dump("Nouvelle quantité: " . $product->getQuantity());
-echo "<br><br>";
-var_dump("Nouvelle date de modification: " . $product->getUpdatedAt()->format('Y-m-d H:i:s'));
-echo "<br><br>";
+echo "Nouveau nom: ";
+var_dump($product->getName());
 
-echo "\n=== Affichage complet de l'objet ===\n\n";
-echo "<br><br>";
+echo "\nNouveau prix: ";
+var_dump($product->getPrice());
 
-//var_dump($product);
-echo $product;
+echo "\nNouvelle quantité: ";
+var_dump($product->getQuantity());
+
+echo "\nDate de mise à jour modifiée: ";
+var_dump($product->getUpdatedAt());

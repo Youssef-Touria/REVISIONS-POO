@@ -1,111 +1,163 @@
 <?php
 declare(strict_types=1);
 
-// ---- Includes & DB ----
-require __DIR__ . '/db.php';            // doit créer $pdo (PDO connecté)
-require_once __DIR__ . '/Product.php';
-require_once __DIR__ . '/Category.php';
+// Activer l'affichage des erreurs
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
 
-// Injecte la connexion PDO une seule fois pour Product::getCategory()
-Product::setPdo($pdo);
-
-// -----------------------------------------------------------------------------
-// 1) LISTE DES PRODUITS (avec catégorie + photos agrégées)
-// -----------------------------------------------------------------------------
-$sql = "
-  SELECT p.id, p.name, p.price_cents, p.quantity,
-         c.name AS category, ph.url
-  FROM product p
-  JOIN category c ON c.id = p.category_id
-  LEFT JOIN product_photo ph ON ph.product_id = p.id
-  ORDER BY p.id, ph.id
-";
-$rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-
-// Regrouper par produit
-$by = [];
-foreach ($rows as $r) {
-    $id = (int)$r['id'];
-    if (!isset($by[$id])) {
-        $by[$id] = [
-            'name'        => (string)$r['name'],
-            'price_cents' => (int)$r['price_cents'],
-            'quantity'    => (int)$r['quantity'],
-            'category'    => (string)$r['category'],
-            'photos'      => [],
-        ];
-    }
-    if (!empty($r['url'])) {
-        $by[$id]['photos'][] = (string)$r['url'];
-    }
-}
-
-// Affichage liste
-echo "<h2>Produits disponibles</h2>";
+echo "<h1>DIAGNOSTIC COMPLET</h1>";
 echo "<pre>";
-foreach ($by as $id => $p) {
-    echo "Produit #$id — {$p['name']} ({$p['category']})\n";
-    echo "Prix: {$p['price_cents']} cts | Stock: {$p['quantity']}\n";
-    echo "Photos: " . implode(', ', $p['photos']) . "\n\n";
-}
-echo "</pre>"; // <-- bien le point-virgule ici
 
-// -----------------------------------------------------------------------------
-// 2) PRODUIT #7 — hydrater Product + récupérer sa Category via getCategory()
-// -----------------------------------------------------------------------------
-echo "<hr><h3>Produit #7 + sa catégorie</h3>";
-
-// a) Récupérer la ligne du produit #7
-$sql7 = "
-  SELECT id, name, price_cents, quantity, category_id, created_at, updated_at
-  FROM product
-  WHERE id = :id
-  LIMIT 1
-";
-$stmt = $pdo->prepare($sql7);
-$stmt->execute([':id' => 7]);
-$row7 = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$row7) {
-    echo "<p>Aucun produit trouvé avec l’ID 7.</p>";
+// ===== TEST 1 : Connexion à la base de données =====
+echo "===== TEST 1 : Connexion PDO =====\n";
+try {
+    $pdo = new PDO(
+        'mysql:host=localhost;dbname=draft-shop;charset=utf8mb4',
+        'root',
+        '',
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]
+    );
+    echo "✅ Connexion réussie à draft-shop\n\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n";
     exit;
 }
 
-// b) Récupérer ses photos
-$photos7 = [];
-$stmtp = $pdo->prepare("SELECT url FROM product_photo WHERE product_id = :pid ORDER BY id");
-$stmtp->execute([':pid' => (int)$row7['id']]);
-while ($r = $stmtp->fetch(PDO::FETCH_ASSOC)) {
-    if (!empty($r['url'])) $photos7[] = (string)$r['url'];
+// ===== TEST 2 : Structure des tables =====
+echo "===== TEST 2 : Structure de la table 'category' =====\n";
+try {
+    $stmt = $pdo->query("DESCRIBE category");
+    $columns = $stmt->fetchAll();
+    foreach ($columns as $col) {
+        echo "- {$col['Field']} ({$col['Type']})\n";
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
 }
 
-// c) Hydrater l'objet Product
-$product7 = new Product(
-    id:         (int)$row7['id'],
-    name:       (string)$row7['name'],
-    photos:     $photos7,
-    price:      (int)$row7['price_cents'], // ta classe a 'price' (int)
-    description:'',
-    quantity:   (int)$row7['quantity'],
-    createdAt:  !empty($row7['created_at']) ? new DateTime($row7['created_at']) : null,
-    updatedAt:  !empty($row7['updated_at']) ? new DateTime($row7['updated_at']) : null,
-    categoryId: (int)$row7['category_id']
-);
+echo "===== Structure de la table 'product' =====\n";
+try {
+    $stmt = $pdo->query("DESCRIBE product");
+    $columns = $stmt->fetchAll();
+    foreach ($columns as $col) {
+        echo "- {$col['Field']} ({$col['Type']})\n";
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
+}
 
-// d) Catégorie via getCategory() (ne prend aucun paramètre)
-$cat7 = $product7->getCategory();
+// ===== TEST 3 : Vérifier si la table product_photo existe =====
+echo "===== TEST 3 : Table 'product_photo' =====\n";
+try {
+    $stmt = $pdo->query("SHOW TABLES LIKE 'product_photo'");
+    if ($stmt->rowCount() > 0) {
+        echo "✅ La table product_photo existe\n";
+        $stmt = $pdo->query("DESCRIBE product_photo");
+        $columns = $stmt->fetchAll();
+        foreach ($columns as $col) {
+            echo "- {$col['Field']} ({$col['Type']})\n";
+        }
+    } else {
+        echo "⚠️  La table product_photo n'existe pas\n";
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
+}
 
-// e) Affichage détaillé
-echo "<pre>";
-echo "Produit #{$product7->getId()} — {$product7->getName()}\n";
-echo "Prix: {$product7->getPrice()} cts | Stock: {$product7->getQuantity()}\n";
-echo "Photos: " . implode(', ', $product7->getPhotos()) . "\n";
+// ===== TEST 4 : Contenu des tables =====
+echo "===== TEST 4 : Contenu de 'category' =====\n";
+try {
+    $stmt = $pdo->query("SELECT * FROM category LIMIT 5");
+    $categories = $stmt->fetchAll();
+    if (empty($categories)) {
+        echo "⚠️  Aucune catégorie trouvée\n";
+    } else {
+        echo "✅ " . count($categories) . " catégories trouvées:\n";
+        foreach ($categories as $cat) {
+            print_r($cat);
+        }
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
+}
 
-if ($cat7) {
-    echo "Catégorie: [#{$cat7->getId()}] {$cat7->getName()}\n";
-    $desc = trim($cat7->getDescription());
-    if ($desc !== '') echo "Description: {$desc}\n";
+echo "===== Contenu de 'product' =====\n";
+try {
+    $stmt = $pdo->query("SELECT * FROM product LIMIT 5");
+    $products = $stmt->fetchAll();
+    if (empty($products)) {
+        echo "⚠️  Aucun produit trouvé\n";
+    } else {
+        echo "✅ " . count($products) . " produits trouvés:\n";
+        foreach ($products as $prod) {
+            print_r($prod);
+        }
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
+}
+
+// ===== TEST 5 : Vérifier si le produit #7 existe =====
+echo "===== TEST 5 : Recherche du produit #7 =====\n";
+try {
+    $stmt = $pdo->prepare("SELECT * FROM product WHERE id = 7");
+    $stmt->execute();
+    $product7 = $stmt->fetch();
+    
+    if ($product7) {
+        echo "✅ Produit #7 trouvé:\n";
+        print_r($product7);
+    } else {
+        echo "⚠️  Aucun produit avec l'ID 7\n";
+    }
+    echo "\n";
+} catch (PDOException $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n\n";
+}
+
+// ===== TEST 6 : Test des classes =====
+echo "===== TEST 6 : Chargement des classes =====\n";
+if (file_exists(__DIR__ . '/Product.php')) {
+    echo "✅ Product.php existe\n";
+    require_once __DIR__ . '/Product.php';
 } else {
-    echo "Catégorie: non trouvée\n";
+    echo "❌ Product.php introuvable\n";
 }
+
+if (file_exists(__DIR__ . '/Category.php')) {
+    echo "✅ Category.php existe\n";
+    require_once __DIR__ . '/Category.php';
+} else {
+    echo "❌ Category.php introuvable\n";
+}
+
+echo "\n";
+
+// ===== TEST 7 : Test simple d'instanciation =====
+echo "===== TEST 7 : Test d'instanciation simple =====\n";
+try {
+    $testProduct = new Product(
+        id: 999,
+        name: "Produit Test",
+        photos: ["test.jpg"],
+        price: 1000,
+        description: "Test",
+        quantity: 5,
+        categoryId: 1
+    );
+    echo "✅ Product instancié avec succès\n";
+    echo "Nom: " . $testProduct->getName() . "\n";
+    echo "Prix: " . $testProduct->getPrice() . "\n";
+} catch (Exception $e) {
+    echo "❌ ERREUR : " . $e->getMessage() . "\n";
+}
+
 echo "</pre>";
